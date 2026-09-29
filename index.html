@@ -36,12 +36,16 @@ input,select{width:100%;padding:10px;border:1px solid var(--bd);border-radius:10
 #qrbox{display:flex;justify-content:center;margin:12px 0}
 .empty{text-align:center;color:var(--mut);padding:16px}
 @media print{body *{visibility:hidden}#qrModal .box,#qrModal .box *{visibility:visible}#qrModal .box{position:absolute;inset:0 auto auto 0;width:100%}.no-print{display:none!important}}
+table{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}td,th{padding:6px;border-bottom:1px solid var(--bd);text-align:center}
+#cardsBox{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:10px}
+.cardp{border:1px dashed #888;border-radius:8px;padding:8px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;background:#fff;color:#000}
+@media print{#cardsModal .box,#cardsModal .box *{visibility:visible}#cardsModal .box{position:absolute;inset:0 auto auto 0;width:100%;max-width:none}}
 </style></head><body>
 <header>🎓 إدارة السنتر التعليمي</header>
 <nav id="nav"></nav>
 <main id="main"></main>
 
-<div class="modal" id="scanModal"><div class="box">
+<div class="modal" id="scanModal" style="z-index:40"><div class="box">
  <h3 id="scanTitle"></h3>
  <div id="reader"></div>
  <div id="banner">وجّه الكاميرا ناحية كود الطالب</div>
@@ -61,8 +65,20 @@ input,select{width:100%;padding:10px;border:1px solid var(--bd);border-radius:10
  <input id="lpw" type="password" placeholder="كلمة المرور" dir="ltr" onkeydown="if(event.key==='Enter')login()">
  <div id="lerr" style="color:var(--no);min-height:22px;font-size:14px"></div>
  <button class="btn" style="width:100%" onclick="login()">دخول</button>
+ <button class="btn s" style="width:100%;margin-top:8px" onclick="$('pubModal').classList.add('on')">🔍 استعلام للطلاب وأولياء الأمور</button>
 </div></div>
 
+<div class="modal" id="pubModal" style="z-index:30"><div class="box">
+ <h3>🔍 الاستعلام عن طالب</h3>
+ <input id="pubCode" placeholder="اكتب كود الطالب المطبوع على الكارت" dir="ltr" onkeydown="if(event.key==='Enter')pubLookup(this.value)">
+ <div class="row"><button class="btn" onclick="pubLookup($('pubCode').value)">بحث</button><button class="btn g" onclick="openScan('pub','pub')">📷 مسح QR</button></div>
+ <div id="pubRes" style="margin-top:10px;text-align:right"></div>
+ <button class="btn s" style="width:100%;margin-top:10px" onclick="$('pubModal').classList.remove('on')">دخول الإدارة</button>
+</div></div>
+<div class="modal" id="cardsModal"><div class="box" style="max-width:800px">
+ <div class="row no-print"><button class="btn" onclick="window.print()">🖨️ طباعة</button><button class="btn s" onclick="$('cardsModal').classList.remove('on')">إغلاق</button></div>
+ <div id="cardsBox"></div>
+</div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -94,6 +110,7 @@ function startSync(){
 function refresh(){
  if(!auth.currentUser||scanner)return;
  if(tab==='students'){if($('slist'))renderStudentsList()}
+ else if(tab==='ask'){renderAskRes()}
  else if(document.activeElement&&document.activeElement.tagName==='INPUT'){if($('seclist'))renderSecList(tab)}
  else renderSec(tab);
 }
@@ -109,21 +126,84 @@ async function login(){
 }
 function logout(){auth.signOut()}
 function mark(k,d,id,on){
- return fs.collection('records').doc(k+'_'+d).set({k,date:d,ids:on?FV.arrayUnion(id):FV.arrayRemove(id)},{merge:true}).catch(errh);
+ const b=fs.batch();
+ b.set(fs.collection('records').doc(k+'_'+d),{k,date:d,ids:on?FV.arrayUnion(id):FV.arrayRemove(id)},{merge:true});
+ b.set(fs.collection('public').doc(id),{[k]:on?FV.arrayUnion(d):FV.arrayRemove(d)},{merge:true});
+ return b.commit().catch(errh);
+}
+const recFor=id=>{const o={};['att','rec','hw'].forEach(k=>o[k]=Object.keys(db[k]).filter(d=>db[k][d].includes(id)));return o};
+function profileHTML(name,r,d){
+ const K=['att','rec','hw'],has=(k,x)=>(r[k]||[]).includes(x);
+ const rows=K.map(k=>{const y=has(k,d);return `<div class="item"><b>${SEC[k].icon} ${SEC[k].t}</b><span class="bd ${y?'y':'n'}">${y?'✔ '+SEC[k].y:'✖ '+SEC[k].n}</span></div>`}).join('');
+ const days=[...new Set(K.flatMap(k=>r[k]||[]))].sort().reverse().slice(0,15);
+ return `<h3>${esc(name)}</h3><div style="color:var(--mut);margin-bottom:6px">حالة يوم ${d}</div>${rows}
+ <div class="stats" style="margin-top:10px">${K.map(k=>`<div>${(r[k]||[]).length}<span>إجمالي ${SEC[k].t}</span></div>`).join('')}</div>
+ <table><tr><th>التاريخ</th>${K.map(k=>`<th>${SEC[k].t}</th>`).join('')}</tr>${days.map(x=>`<tr><td>${x}</td>${K.map(k=>`<td>${has(k,x)?'✔':'—'}</td>`).join('')}</tr>`).join('')}</table>`;
+}
+function renderAsk(){
+ $('main').innerHTML=`<div class="card"><h3>🔍 استعلام شامل (حضور • تسميع • واجب)</h3>
+  <input type="date" value="${dates.ask}" onchange="dates.ask=this.value;renderAskRes()">
+  <button class="btn g" style="width:100%;margin-bottom:8px" onclick="openScan('ask','ask')">📷 استعلام بالـQR</button>
+  <input placeholder="🔍 ابحث بالاسم أو المجموعة" value="${esc(q)}" oninput="q=this.value;renderAskList()"><div id="asklist"></div></div>
+  <div class="card" id="askres"></div>`;
+ renderAskList();renderAskRes();
+}
+function renderAskList(){
+ const l=q?db.students.filter(s=>s.name.includes(q)||(s.group||'').includes(q)).slice(0,8):[];
+ $('asklist').innerHTML=l.map(s=>`<div class="item" style="cursor:pointer" onclick="askId='${s.id}';renderAskRes()"><b>${esc(s.name)}</b><small>${esc(s.group||'')}</small></div>`).join('');
+}
+function renderAskRes(){
+ const el=$('askres');if(!el)return;
+ const s=db.students.find(x=>x.id===askId);
+ el.style.display=s?'':'none';if(!s)return;
+ el.innerHTML=profileHTML(s.name,recFor(s.id),dates.ask)+`<button class="btn g" style="width:100%;margin-top:10px" onclick="wa('${s.id}')">📲 إرسال التقرير لولي الأمر (واتساب)</button>`;
+}
+function wa(id){
+ const s=db.students.find(x=>x.id===id),r=recFor(id),d=dates.ask;
+ let p=(s.parent||s.phone||'').replace(/\D/g,'');if(!p)return alert('لا يوجد رقم لولي الأمر');
+ if(p.startsWith('0'))p='20'+p.slice(1);
+ const t=`تقرير الطالب ${s.name} يوم ${d}:\n`+['att','rec','hw'].map(k=>`${SEC[k].icon} ${SEC[k].t}: ${r[k].includes(d)?SEC[k].y+' ✔':SEC[k].n+' ✖'}`).join('\n');
+ window.open('https://wa.me/'+p+'?text='+encodeURIComponent(t),'_blank');
+}
+function editStudent(id){
+ const s=db.students.find(x=>x.id===id);
+ const name=prompt('اسم الطالب',s.name);if(!name||!name.trim())return;
+ const g=prompt('المجموعة',s.group||''),pr=prompt('رقم ولي الأمر',s.parent||'');
+ const b=fs.batch();
+ b.update(fs.collection('students').doc(id),{name:name.trim(),group:(g??s.group??'').trim(),parent:(pr??s.parent??'').trim()});
+ b.set(fs.collection('public').doc(id),{name:name.trim()},{merge:true});
+ b.commit().catch(errh);
+}
+function printCards(){
+ const m=$('cardsBox');m.innerHTML='';
+ db.students.forEach(s=>{const c=document.createElement('div');c.className='cardp';c.innerHTML=`<b>${esc(s.name)}</b><small>${esc(s.group||'')}</small><div></div><small>${s.id}</small>`;m.appendChild(c);new QRCode(c.children[2],{text:s.id,width:110,height:110})});
+ $('cardsModal').classList.add('on');
+}
+async function syncPublic(){
+ const b=fs.batch();
+ db.students.forEach(s=>{const o={name:s.name};['att','rec','hw'].forEach(k=>o[k]=Object.keys(db[k]).filter(d=>db[k][d].includes(s.id)));b.set(fs.collection('public').doc(s.id),o)});
+ try{await b.commit();alert('تمت المزامنة')}catch(e){errh(e)}
+}
+async function pubLookup(code){
+ code=(code||'').replace(/[^A-Za-z0-9]/g,'');if(!code)return;
+ $('pubRes').textContent='جاري البحث...';
+ try{const r=await fs.collection('public').doc(code).get();
+  $('pubRes').innerHTML=r.exists?profileHTML(r.data().name||'طالب',r.data(),today()):'<div class="empty">❌ كود غير صحيح</div>';
+ }catch(e){$('pubRes').innerHTML='<div class="empty">تعذر الاتصال، حاول مرة أخرى</div>'}
 }
 const SEC={
  att:{t:'الحضور',icon:'✅',y:'حاضر',n:'غائب',verb:'تسجيل الحضور'},
  rec:{t:'التسميع',icon:'📖',y:'سمّع',n:'لم يسمّع',verb:'تسجيل التسميع'},
  hw:{t:'الواجب',icon:'📝',y:'حلّ الواجب',n:'لم يحل',verb:'تسجيل حل الواجب'}
 };
-let tab='students',dates={att:today(),rec:today(),hw:today()},q='';
+let tab='students',dates={att:today(),rec:today(),hw:today(),ask:today(),pub:today()},q='',askId=null,grp='';
 
 function renderNav(){
- const tabs=[['students','👥 الطلاب'],['att','✅ الحضور'],['rec','📖 التسميع'],['hw','📝 الواجب']];
+ const tabs=[['students','👥 الطلاب'],['att','✅ الحضور'],['rec','📖 التسميع'],['hw','📝 الواجب'],['ask','🔍 استعلام']];
  $('nav').innerHTML=tabs.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="go('${k}')">${l}</button>`).join('');
 }
 function go(k){tab=k;q='';render()}
-function render(){renderNav();tab==='students'?renderStudents():renderSec(tab)}
+function render(){if(!auth.currentUser)return;renderNav();tab==='students'?renderStudents():tab==='ask'?renderAsk():renderSec(tab)}
 
 function renderStudents(){
  const list=db.students.filter(s=>(s.name+s.phone+s.group).includes(q));
@@ -135,26 +215,27 @@ function renderStudents(){
   <button class="btn g" style="width:100%" onclick="addStudent()">حفظ وإنشاء QR</button></div>
  <div class="card"><h3>قائمة الطلاب (<span id="scount">${db.students.length}</span>)</h3>
   <input placeholder="🔍 بحث بالاسم أو الرقم أو المجموعة" value="${esc(q)}" oninput="q=this.value;renderStudentsList()" id="sq">
-  <div id="slist"></div></div>
- <div class="card"><h3>☁️ الحساب</h3><p style="color:var(--mut);margin:0 0 8px;font-size:14px">البيانات متزامنة مع Firebase وتظهر على كل أجهزة الإدارة.</p><button class="btn s" onclick="logout()">تسجيل خروج</button></div>`;
+  <div id="slist"></div><button class="btn s" style="width:100%;margin-top:8px" onclick="printCards()">🖨️ طباعة كل كروت QR</button></div>
+ <div class="card"><h3>☁️ الحساب</h3><p style="color:var(--mut);margin:0 0 8px;font-size:14px">البيانات متزامنة مع Firebase وتظهر على كل أجهزة الإدارة.</p><p style="font-size:13px;margin:0 0 4px">رابط الاستعلام للطلاب وأولياء الأمور:</p><p style="font-size:13px;word-break:break-all;direction:ltr;text-align:left;margin:0 0 8px">${location.href.split('#')[0]}#inquiry</p>
+  <div class="row"><button class="btn s" onclick="syncPublic()">🔄 مزامنة بيانات الاستعلام</button><button class="btn s" onclick="logout()">تسجيل خروج</button></div></div>`;
  renderStudentsList();
 }
 function renderStudentsList(){
  const sc=$('scount');if(sc)sc.textContent=db.students.length;
  const list=db.students.filter(s=>(s.name+(s.phone||'')+(s.group||'')).includes(q));
  $('slist').innerHTML=list.length?list.map(s=>`<div class="item"><div><b>${esc(s.name)}</b><small>${esc(s.group||'')} ${s.phone?'• '+esc(s.phone):''}</small></div>
-  <div style="display:flex;gap:6px"><button class="btn sm" onclick="showQR('${s.id}')">QR</button><button class="btn sm r" onclick="delStudent('${s.id}')">حذف</button></div></div>`).join(''):'<div class="empty">لا يوجد طلاب</div>';
+  <div style="display:flex;gap:6px"><button class="btn sm" onclick="showQR('${s.id}')">QR</button><button class="btn sm s" onclick="editStudent('${s.id}')">تعديل</button><button class="btn sm r" onclick="delStudent('${s.id}')">حذف</button></div></div>`).join(''):'<div class="empty">لا يوجد طلاب</div>';
 }
 function addStudent(){
  const name=$('fn').value.trim();if(!name){alert('اكتب اسم الطالب');return}
- const id='S'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,5).toUpperCase();
+ const id='S'+Array.from(crypto.getRandomValues(new Uint8Array(10)),b=>(b%36).toString(36)).join('').toUpperCase();
  const s={id,name,phone:$('fp').value.trim(),parent:$('fg').value.trim(),group:$('fc').value.trim(),note:$('fd').value.trim()};
  s.createdAt=Date.now();
- fs.collection('students').doc(id).set(s).then(()=>{['fn','fp','fg','fc','fd'].forEach(i=>$(i).value='');showQR(id)}).catch(errh);
+ (()=>{const b=fs.batch();b.set(fs.collection('students').doc(id),s);b.set(fs.collection('public').doc(id),{name,att:[],rec:[],hw:[]});return b.commit()})().then(()=>{['fn','fp','fg','fc','fd'].forEach(i=>$(i).value='');showQR(id)}).catch(errh);
 }
 function delStudent(id){
  if(!confirm('حذف الطالب وكل سجلاته؟'))return;
- const b=fs.batch();b.delete(fs.collection('students').doc(id));
+ const b=fs.batch();b.delete(fs.collection('students').doc(id));b.delete(fs.collection('public').doc(id));
  ['att','rec','hw'].forEach(k=>{for(const d in db[k])if(db[k][d].includes(id))b.update(fs.collection('records').doc(k+'_'+d),{ids:FV.arrayRemove(id)})});
  b.commit().catch(errh);
 }
@@ -176,14 +257,15 @@ function renderSec(k){
   <div class="row"><button class="btn g" onclick="openScan('${k}','rec')">📷 ابدأ ${c.verb}</button>
   <button class="btn" onclick="openScan('${k}','ask')">🔍 استعلام بالـQR</button></div></div>
  <div class="card"><div class="stats"><div>${db.students.length}<span>إجمالي الطلاب</span></div><div style="color:var(--ok)">${yes}<span>${c.y}</span></div><div style="color:var(--no)">${db.students.length-yes}<span>${c.n}</span></div></div>
-  <input placeholder="🔍 استعلام بالاسم أو المجموعة" value="${esc(q)}" oninput="q=this.value;renderSecList('${k}')">
+  <select onchange="grp=this.value;renderSecList('${k}')"><option value="">كل المجموعات</option>${[...new Set(db.students.map(x=>x.group).filter(Boolean))].map(g=>`<option ${g===grp?'selected':''}>${esc(g)}</option>`).join('')}</select>
+  <input placeholder="🔍 بحث بالاسم" value="${esc(q)}" oninput="q=this.value;renderSecList('${k}')">
   <div id="seclist"></div>
   <p style="color:var(--mut);font-size:12px;margin:8px 0 0">اضغط على الحالة لتغييرها يدويًا.</p></div>`;
  renderSecList(k);
 }
 function renderSecList(k){
  const c=SEC[k],d=dates[k],ids=db[k][d]||[];
- const list=db.students.filter(s=>s.name.includes(q)||(s.group||'').includes(q));
+ const list=db.students.filter(s=>(!grp||s.group===grp)&&(s.name.includes(q)||(s.group||'').includes(q)));
  $('seclist').innerHTML=list.length?list.map(s=>{const y=ids.includes(s.id);
   return `<div class="item"><div><b>${esc(s.name)}</b><small>${esc(s.group||'')}</small></div><span class="bd ${y?'y':'n'}" onclick="toggle('${k}','${s.id}')">${y?'✔ '+c.y:'✖ '+c.n}</span></div>`}).join(''):'<div class="empty">لا يوجد طلاب</div>';
 }
@@ -203,7 +285,7 @@ function say(cls,txt){
 }
 async function openScan(k,mode){
  ctx={k,mode,d:dates[k]};last='';
- $('scanTitle').textContent=(mode==='rec'?SEC[k].verb:'استعلام عن '+SEC[k].t)+' — '+ctx.d;
+ $('scanTitle').textContent=(k==='ask'||k==='pub'?'استعلام شامل':mode==='rec'?SEC[k].verb:'استعلام عن '+SEC[k].t)+' — '+ctx.d;
  $('feed').innerHTML='';$('banner').className='';$('banner').textContent='وجّه الكاميرا ناحية كود الطالب';
  $('scanModal').classList.add('on');
  try{
@@ -220,9 +302,12 @@ function onScan(txt){
  const now=Date.now();
  if(txt===last&&now-lastT<3000)return;
  last=txt;lastT=now;
+ if(ctx.k==='pub'){closeScan();$('pubCode').value=txt.trim();pubLookup(txt);return}
  const s=db.students.find(x=>x.id===txt.trim());
  if(!s){say('bad','❌ كود غير معروف');beep(false);return}
- const {k,mode,d}=ctx,c=SEC[k],has=(db[k][d]||[]).includes(s.id);
+ const {k,mode,d}=ctx;
+ if(k==='ask'){askId=s.id;const r=recFor(s.id);say('ok',s.name+' — '+['att','rec','hw'].map(x=>SEC[x].t+(r[x].includes(d)?' ✔':' ✖')).join(' | '));beep(true);return}
+ const c=SEC[k],has=(db[k][d]||[]).includes(s.id);
  if(mode==='rec'){
   if(has){say('warn','⚠️ '+s.name+' — مسجّل بالفعل');beep(false)}
   else{mark(k,d,s.id,true);say('ok','✅ تم بنجاح — '+s.name);beep(true)}
@@ -232,5 +317,6 @@ function onScan(txt){
  }
 }
 renderNav();
+if(location.hash==='#inquiry')$('pubModal').classList.add('on');
 </script>
 </body></html>
