@@ -65,23 +65,21 @@ table{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}td,th{pa
  <input id="lpw" type="password" placeholder="كلمة المرور" dir="ltr" onkeydown="if(event.key==='Enter')login()">
  <div id="lerr" style="color:var(--no);min-height:22px;font-size:14px"></div>
  <button class="btn" style="width:100%" onclick="login()">دخول</button>
- <button class="btn s" style="width:100%;margin-top:8px" onclick="$('pubModal').classList.add('on')">🔍 استعلام للطلاب وأولياء الأمور</button>
 </div></div>
 
-<div class="modal" id="pubModal" style="z-index:30"><div class="box">
- <h3>🎓 سنتر بيرفكت التعليمي</h3><div style="color:var(--mut);margin-bottom:8px">🔍 كارت الطالب والاستعلام</div>
- <input id="pubCode" placeholder="اكتب كود الطالب المطبوع على الكارت" dir="ltr" onkeydown="if(event.key==='Enter')pubLookup(this.value)">
- <div class="row"><button class="btn" onclick="pubLookup($('pubCode').value)">بحث</button><button class="btn g" onclick="openScan('pub','pub')">📷 مسح QR</button></div>
- <div id="pubQR" style="display:flex;justify-content:center;margin-top:10px"></div>
- <div id="pubRes" style="margin-top:10px;text-align:right"></div>
- <button class="btn s" style="width:100%;margin-top:10px" onclick="$('pubModal').classList.remove('on')">دخول الإدارة</button>
+<div class="modal" id="cardPage" style="z-index:50"><div class="box">
+ <h3>🎓 سنتر بيرفكت التعليمي</h3>
+ <h3 id="cpName" style="margin-top:4px"></h3>
+ <div id="cpInfo" style="color:var(--mut)"></div>
+ <div id="cpQR" style="display:flex;justify-content:center;margin:12px 0"></div>
+ <div id="cpCode" dir="ltr" style="font-weight:700;letter-spacing:1px"></div>
+ <button class="btn g" style="width:100%;margin-top:12px" onclick="dlCard()">⬇️ تنزيل الكارت (صورة PNG)</button>
+ <p style="color:var(--mut);font-size:13px;margin:10px 0 0">احفظ الصورة عندك وأظهرها عند تسجيل الحضور. لو الصورة اتفتحت بدل ما تتنزل، اضغط عليها مطولًا واختر حفظ.</p>
 </div></div>
 <div class="modal" id="sendModal"><div class="box">
  <h3>📨 إرسال كارت QR على واتساب</h3>
  <div id="sendInfo"></div>
- <div class="row" style="margin-top:10px"><button class="btn g" onclick="sendPdf('s')">📄 PDF للطالب</button><button class="btn g" onclick="sendPdf('p')">📄 PDF لولي الأمر</button></div>
- <div class="row" style="margin-top:8px"><button class="btn s" onclick="sendTo('s')">🔗 رابط للطالب</button><button class="btn s" onclick="sendTo('p')">🔗 رابط لولي الأمر</button></div>
- <div id="sendMsg" style="color:var(--mut);font-size:13px;margin-top:8px"></div>
+ <div class="row" style="margin-top:10px"><button class="btn g" onclick="sendTo('s')">📲 للطالب</button><button class="btn g" onclick="sendTo('p')">📲 لولي الأمر</button></div>
  <div class="row" style="margin-top:8px"><button class="btn s" onclick="sendNext(-1)">◀ السابق</button><button class="btn" onclick="sendNext(1)">التالي ▶</button></div>
  <button class="btn s" style="width:100%;margin-top:8px" onclick="$('sendModal').classList.remove('on')">إغلاق</button>
 </div></div>
@@ -91,7 +89,6 @@ table{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}td,th{pa
 </div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -166,53 +163,44 @@ function renderSend(){
  if(!st){$('sendModal').classList.remove('on');return}
  $('sendInfo').innerHTML=`<div style="color:var(--mut)">${sendIdx+1} / ${sendList.length}</div><h3>${esc(st.name)}</h3><div style="color:var(--mut);font-size:13px">الطالب: ${esc(st.phone||'—')}<br>ولي الأمر: ${esc(st.parent||'—')}</div>${st.qrSent?'<div style="color:var(--ok);margin-top:6px">✔ تم الإرسال من قبل</div>':''}`;
 }
-async function cardPdf(st){
+let cardData=null;
+function showCardPage(d){
+ cardData=d;
+ $('cpName').textContent=d.name;
+ $('cpInfo').textContent='الصف الثاني (بكالوريا)'+(d.group?' • '+d.group:'');
+ $('cpCode').textContent=d.id;
+ $('cpQR').innerHTML='';new QRCode($('cpQR'),{text:d.id,width:220,height:220,correctLevel:QRCode.CorrectLevel.M});
+ $('cardPage').classList.add('on');
+}
+async function drawCard(d){
  const tmp=document.createElement('div');tmp.style.cssText='position:fixed;left:-9999px;top:0';document.body.appendChild(tmp);
- new QRCode(tmp,{text:st.id,width:400,height:400,correctLevel:QRCode.CorrectLevel.M});
+ new QRCode(tmp,{text:d.id,width:400,height:400,correctLevel:QRCode.CorrectLevel.M});
  await new Promise(r=>setTimeout(r,150));
  const qc=tmp.querySelector('canvas')||tmp.querySelector('img');
- const W=800,H=1100,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
+ const W=800,H=1000,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
  const F='Tahoma,Arial,sans-serif';
  x.fillStyle='#fff';x.fillRect(0,0,W,H);
  x.fillStyle='#4f46e5';x.fillRect(0,0,W,150);
  x.textAlign='center';x.direction='rtl';
  x.fillStyle='#fff';x.font='bold 54px '+F;x.fillText('سنتر بيرفكت التعليمي',W/2,96);
  let fz=54;x.fillStyle='#111';x.font='bold '+fz+'px '+F;
- while(x.measureText(st.name).width>720&&fz>26){fz-=2;x.font='bold '+fz+'px '+F}
- x.fillText(st.name,W/2,260);
- x.fillStyle='#555';x.font='34px '+F;x.fillText('الصف الثاني (بكالوريا)'+(st.group?' • '+st.group:''),W/2,325);
+ while(x.measureText(d.name).width>720&&fz>26){fz-=2;x.font='bold '+fz+'px '+F}
+ x.fillText(d.name,W/2,260);
+ x.fillStyle='#555';x.font='34px '+F;x.fillText('الصف الثاني (بكالوريا)'+(d.group?' • '+d.group:''),W/2,325);
  x.strokeStyle='#4f46e5';x.lineWidth=6;x.strokeRect(180,360,440,440);
  x.drawImage(qc,200,380,400,400);
- x.direction='ltr';x.fillStyle='#111';x.font='bold 42px monospace';x.fillText(st.id,W/2,880);
- x.direction='rtl';x.fillStyle='#555';x.font='30px '+F;
- x.fillText('احتفظ بهذا الكود لتسجيل الحضور والتسميع والواجب',W/2,960);
- x.fillText('ويمكنك الاستعلام من رابط الاستعلام الخاص بالسنتر',W/2,1010);
+ x.direction='ltr';x.fillStyle='#111';x.font='bold 42px monospace';x.fillText(d.id,W/2,880);
+ x.direction='rtl';x.fillStyle='#555';x.font='30px '+F;x.fillText('أظهر هذا الكود عند تسجيل الحضور',W/2,950);
  tmp.remove();
- const pdf=new window.jspdf.jsPDF({unit:'mm',format:[148,203.5]});
- pdf.addImage(c.toDataURL('image/png'),'PNG',0,0,148,203.5);
- const nm=st.name.replace(/[^\u0600-\u06FFA-Za-z0-9 ]/g,'').trim()||st.id;
- return new File([pdf.output('blob')],'كارت-'+nm+'.pdf',{type:'application/pdf'});
+ return c;
+}
+async function dlCard(){
+ const c=await drawCard(cardData);
+ const a=document.createElement('a');a.href=c.toDataURL('image/png');
+ a.download='كارت-'+(cardData.name.replace(/[^\u0600-\u06FFA-Za-z0-9 ]/g,'').trim()||cardData.id)+'.png';
+ document.body.appendChild(a);a.click();a.remove();
 }
 const markSent=id=>fs.collection('students').doc(id).update({qrSent:true}).then(renderSend).catch(()=>{});
-async function sendPdf(w){
- const st=db.students.find(x=>x.id===sendList[sendIdx]);if(!st)return;
- const num=waNum(w==='s'?st.phone:st.parent);
- if(!num)return alert(w==='s'?'لا يوجد رقم للطالب':'لا يوجد رقم لولي الأمر');
- const msg=$('sendMsg');msg.textContent='جاري تجهيز ملف PDF...';
- try{
-  const file=await cardPdf(st);
-  const text='سنتر بيرفكت التعليمي 🎓\nكارت الطالب '+st.name+'\nالكود: '+st.id;
-  const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if(mobile&&navigator.canShare&&navigator.canShare({files:[file]})){
-   try{await navigator.share({files:[file],text});msg.textContent='اختر واتساب ثم رقم '+(w==='s'?'الطالب':'ولي الأمر')+': '+(w==='s'?st.phone:st.parent);markSent(st.id);return}
-   catch(e){if(e.name==='AbortError'){msg.textContent='';return}}
-  }
-  const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=file.name;document.body.appendChild(a);a.click();a.remove();
-  window.open('https://wa.me/'+num+'?text='+encodeURIComponent(text),'_blank');
-  msg.textContent='تم تنزيل الملف — أرفقه (📎) في محادثة واتساب المفتوحة.';
-  markSent(st.id);
- }catch(e){console.error(e);msg.textContent='تعذر إنشاء الملف';}
-}
 async function deleteAll(){
  if(!db.students.length&&!confirm('لا يوجد طلاب ظاهرون. هل تريد مسح كل السجلات المتبقية؟'))return;
  if(!confirm('سيتم حذف '+db.students.length+' طالب وكل سجلات الحضور والتسميع والواجب نهائيًا، ولا يمكن التراجع. متابعة؟'))return;
@@ -234,8 +222,8 @@ function sendTo(w){
  const st=db.students.find(x=>x.id===sendList[sendIdx]);if(!st)return;
  const num=waNum(w==='s'?st.phone:st.parent);
  if(!num)return alert(w==='s'?'لا يوجد رقم للطالب':'لا يوجد رقم لولي الأمر');
- const link=location.href.split('#')[0]+'#card='+st.id;
- const t='سنتر بيرفكت التعليمي 🎓\nكارت الطالب: '+st.name+'\nالكود: '+st.id+'\n\nافتح الرابط لعرض الـQR الخاص بالطالب واحتفظ به لتسجيل الحضور، ومن نفس الرابط تتابع الحضور والتسميع والواجب:\n'+link;
+ const link=location.href.split('#')[0]+'#card='+st.id+'&n='+encodeURIComponent(st.name)+'&g='+encodeURIComponent(st.group||'');
+ const t='سنتر بيرفكت التعليمي 🎓\nكارت الطالب: '+st.name+'\nالكود: '+st.id+'\n\nافتح الرابط ليظهر لك الـQR الخاص بالطالب، ثم اضغط تنزيل واحفظه كصورة لتسجيل الحضور:\n'+link;
  window.open('https://wa.me/'+num+'?text='+encodeURIComponent(t),'_blank');
  fs.collection('students').doc(st.id).update({qrSent:true}).then(renderSend).catch(()=>{});
 }
@@ -311,20 +299,12 @@ async function syncPublic(){
   alert('تمت المزامنة ('+list.length+' طالب)');
  }catch(e){errh(e)}
 }
-async function pubLookup(code){
- code=(code||'').replace(/[^A-Za-z0-9]/g,'');if(!code)return;
- $('pubQR').innerHTML='';$('pubRes').textContent='جاري البحث...';
- try{const r=await fs.collection('public').doc(code).get();
-  $('pubRes').innerHTML=r.exists?profileHTML(r.data().name||'طالب',r.data(),today()):'<div class="empty">❌ كود غير صحيح</div>';
-  if(r.exists)new QRCode($('pubQR'),{text:code,width:200,height:200});
- }catch(e){$('pubRes').innerHTML='<div class="empty">تعذر الاتصال، حاول مرة أخرى</div>'}
-}
 const SEC={
  att:{t:'الحضور',icon:'✅',y:'حاضر',n:'غائب',verb:'تسجيل الحضور'},
  rec:{t:'التسميع',icon:'📖',y:'سمّع',n:'لم يسمّع',verb:'تسجيل التسميع'},
  hw:{t:'الواجب',icon:'📝',y:'حلّ الواجب',n:'لم يحل',verb:'تسجيل حل الواجب'}
 };
-let tab='students',dates={att:today(),rec:today(),hw:today(),ask:today(),pub:today()},q='',askId=null,grp='';
+let tab='students',dates={att:today(),rec:today(),hw:today(),ask:today()},q='',askId=null,grp='';
 
 function renderNav(){
  const tabs=[['students','👥 الطلاب'],['att','✅ الحضور'],['rec','📖 التسميع'],['hw','📝 الواجب'],['ask','🔍 استعلام']];
@@ -346,8 +326,7 @@ function renderStudents(){
   <input placeholder="🔍 بحث بالاسم أو الرقم أو المجموعة" value="${esc(q)}" oninput="q=this.value;renderStudentsList()" id="sq">
   <div id="slist"></div><button class="btn g" style="width:100%;margin-top:8px" onclick="startQueue()">📨 إرسال QR واتساب لمن لم يُرسل له (واحد ورا واحد)</button>
   <button class="btn s" style="width:100%;margin-top:8px" onclick="printCards()">🖨️ طباعة كروت QR</button></div>
- <div class="card"><h3>☁️ الحساب</h3><p style="color:var(--mut);margin:0 0 8px;font-size:14px">البيانات متزامنة مع Firebase وتظهر على كل أجهزة الإدارة.</p><p style="font-size:13px;margin:0 0 4px">رابط الاستعلام للطلاب وأولياء الأمور:</p><p style="font-size:13px;word-break:break-all;direction:ltr;text-align:left;margin:0 0 8px">${location.href.split('#')[0]}#inquiry</p>
-  <div class="row"><button class="btn s" onclick="syncPublic()">🔄 مزامنة بيانات الاستعلام</button><button class="btn s" onclick="logout()">تسجيل خروج</button></div>
+ <div class="card"><h3>☁️ الحساب</h3><p style="color:var(--mut);margin:0 0 8px;font-size:14px">البيانات متزامنة مع Firebase وتظهر على كل أجهزة الإدارة.</p>  <div class="row"><button class="btn s" onclick="syncPublic()">🔄 مزامنة سجلات الطلاب</button><button class="btn s" onclick="logout()">تسجيل خروج</button></div>
   <button class="btn r" id="delbtn" style="width:100%;margin-top:10px" onclick="deleteAll()">🗑️ حذف كل الطلاب نهائيًا</button><div id="delst" style="color:var(--mut);margin-top:6px"></div></div>`;
  renderStudentsList();
 }
@@ -419,7 +398,7 @@ function say(cls,txt){
 }
 async function openScan(k,mode){
  ctx={k,mode,d:dates[k]};last='';
- $('scanTitle').textContent=(k==='ask'||k==='pub'?'استعلام شامل':mode==='rec'?SEC[k].verb:'استعلام عن '+SEC[k].t)+' — '+ctx.d;
+ $('scanTitle').textContent=(k==='ask'?'استعلام شامل':mode==='rec'?SEC[k].verb:'استعلام عن '+SEC[k].t)+' — '+ctx.d;
  $('feed').innerHTML='';$('banner').className='';$('banner').textContent='وجّه الكاميرا ناحية كود الطالب';
  $('scanModal').classList.add('on');
  try{
@@ -436,7 +415,6 @@ function onScan(txt){
  const now=Date.now();
  if(txt===last&&now-lastT<3000)return;
  last=txt;lastT=now;
- if(ctx.k==='pub'){closeScan();$('pubCode').value=txt.trim();pubLookup(txt);return}
  const s=db.students.find(x=>x.id===txt.trim());
  if(!s){say('bad','❌ كود غير معروف');beep(false);return}
  const {k,mode,d}=ctx;
@@ -451,8 +429,7 @@ function onScan(txt){
  }
 }
 renderNav();
-const hm=location.hash.match(/^#card=([A-Za-z0-9]+)/);
-if(hm){$('pubModal').classList.add('on');$('pubCode').value=hm[1];pubLookup(hm[1])}
-else if(location.hash==='#inquiry')$('pubModal').classList.add('on');
+const hp=new URLSearchParams(location.hash.slice(1)),hid=hp.get('card');
+if(hid&&/^[A-Za-z0-9]{6,24}$/.test(hid))showCardPage({id:hid,name:hp.get('n')||'',group:hp.get('g')||''});
 </script>
 </body></html>
