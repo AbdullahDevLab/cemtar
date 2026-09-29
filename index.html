@@ -55,15 +55,62 @@ input,select{width:100%;padding:10px;border:1px solid var(--bd);border-radius:10
  <div class="row no-print"><button class="btn" onclick="window.print()">🖨️ طباعة</button><button class="btn s" onclick="$('qrModal').classList.remove('on')">إغلاق</button></div>
 </div></div>
 
+<div class="modal on" id="loginModal"><div class="box">
+ <h3>🔐 تسجيل دخول الإدارة</h3>
+ <input id="lem" type="email" placeholder="البريد الإلكتروني" dir="ltr">
+ <input id="lpw" type="password" placeholder="كلمة المرور" dir="ltr" onkeydown="if(event.key==='Enter')login()">
+ <div id="lerr" style="color:var(--no);min-height:22px;font-size:14px"></div>
+ <button class="btn" style="width:100%" onclick="login()">دخول</button>
+</div></div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=()=>new Date().toLocaleDateString('en-CA');
-let db={students:[],att:{},rec:{},hw:{}};
-try{const r=localStorage.getItem('centerdb');if(r)db=Object.assign(db,JSON.parse(r))}catch(e){}
-const save=()=>{try{localStorage.setItem('centerdb',JSON.stringify(db))}catch(e){}};
+const firebaseConfig={
+  apiKey:"AIzaSyCfH-5PenUQ5KM_waHaQfeTbEa6hd5NV1E",
+  authDomain:"abdo-f496d.firebaseapp.com",
+  projectId:"abdo-f496d",
+  storageBucket:"abdo-f496d.firebasestorage.app",
+  messagingSenderId:"656645256230",
+  appId:"1:656645256230:web:dfab44d62b8dcc76f562e7"
+};
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth(),fs=firebase.firestore(),FV=firebase.firestore.FieldValue;
+let db={students:[],att:{},rec:{},hw:{}},unsubs=[];
+const errh=e=>{console.error(e);alert('خطأ في قاعدة البيانات: '+(e.code||e.message))};
+function startSync(){
+ unsubs.push(fs.collection('students').orderBy('createdAt').onSnapshot(sn=>{db.students=sn.docs.map(d=>d.data());refresh()},errh));
+ unsubs.push(fs.collection('records').onSnapshot(sn=>{
+  const n={att:{},rec:{},hw:{}};
+  sn.docs.forEach(d=>{const x=d.data();if(n[x.k])n[x.k][x.date]=x.ids||[]});
+  Object.assign(db,n);refresh()},errh));
+}
+function refresh(){
+ if(!auth.currentUser||scanner)return;
+ if(tab==='students'){if($('slist'))renderStudentsList()}
+ else if(document.activeElement&&document.activeElement.tagName==='INPUT'){if($('seclist'))renderSecList(tab)}
+ else renderSec(tab);
+}
+auth.onAuthStateChanged(u=>{
+ unsubs.forEach(f=>f());unsubs=[];
+ if(u){$('loginModal').classList.remove('on');startSync();render()}
+ else{db={students:[],att:{},rec:{},hw:{}};$('main').innerHTML='';$('loginModal').classList.add('on')}
+});
+async function login(){
+ $('lerr').textContent='';
+ try{await auth.signInWithEmailAndPassword($('lem').value.trim(),$('lpw').value)}
+ catch(e){$('lerr').textContent='بيانات الدخول غير صحيحة ('+(e.code||'')+')'}
+}
+function logout(){auth.signOut()}
+function mark(k,d,id,on){
+ return fs.collection('records').doc(k+'_'+d).set({k,date:d,ids:on?FV.arrayUnion(id):FV.arrayRemove(id)},{merge:true}).catch(errh);
+}
 const SEC={
  att:{t:'الحضور',icon:'✅',y:'حاضر',n:'غائب',verb:'تسجيل الحضور'},
  rec:{t:'التسميع',icon:'📖',y:'سمّع',n:'لم يسمّع',verb:'تسجيل التسميع'},
@@ -86,15 +133,14 @@ function renderStudents(){
   <div class="row"><input id="fp" placeholder="رقم الطالب" inputmode="tel"><input id="fg" placeholder="رقم ولي الأمر" inputmode="tel"></div>
   <div class="row"><input id="fc" placeholder="الصف / المجموعة"><input id="fd" placeholder="ملاحظات"></div>
   <button class="btn g" style="width:100%" onclick="addStudent()">حفظ وإنشاء QR</button></div>
- <div class="card"><h3>قائمة الطلاب (${db.students.length})</h3>
+ <div class="card"><h3>قائمة الطلاب (<span id="scount">${db.students.length}</span>)</h3>
   <input placeholder="🔍 بحث بالاسم أو الرقم أو المجموعة" value="${esc(q)}" oninput="q=this.value;renderStudentsList()" id="sq">
   <div id="slist"></div></div>
- <div class="card"><h3>💾 نسخة احتياطية</h3>
-  <p style="color:var(--mut);margin:0 0 8px;font-size:14px">البيانات محفوظة على هذا المتصفح/الجهاز فقط، فخد نسخة احتياطية باستمرار.</p>
-  <div class="row"><button class="btn s" onclick="backup()">نسخ البيانات</button><button class="btn s" onclick="restore()">استرجاع بيانات</button></div></div>`;
+ <div class="card"><h3>☁️ الحساب</h3><p style="color:var(--mut);margin:0 0 8px;font-size:14px">البيانات متزامنة مع Firebase وتظهر على كل أجهزة الإدارة.</p><button class="btn s" onclick="logout()">تسجيل خروج</button></div>`;
  renderStudentsList();
 }
 function renderStudentsList(){
+ const sc=$('scount');if(sc)sc.textContent=db.students.length;
  const list=db.students.filter(s=>(s.name+(s.phone||'')+(s.group||'')).includes(q));
  $('slist').innerHTML=list.length?list.map(s=>`<div class="item"><div><b>${esc(s.name)}</b><small>${esc(s.group||'')} ${s.phone?'• '+esc(s.phone):''}</small></div>
   <div style="display:flex;gap:6px"><button class="btn sm" onclick="showQR('${s.id}')">QR</button><button class="btn sm r" onclick="delStudent('${s.id}')">حذف</button></div></div>`).join(''):'<div class="empty">لا يوجد طلاب</div>';
@@ -103,13 +149,14 @@ function addStudent(){
  const name=$('fn').value.trim();if(!name){alert('اكتب اسم الطالب');return}
  const id='S'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,5).toUpperCase();
  const s={id,name,phone:$('fp').value.trim(),parent:$('fg').value.trim(),group:$('fc').value.trim(),note:$('fd').value.trim()};
- db.students.push(s);save();render();showQR(id);
+ s.createdAt=Date.now();
+ fs.collection('students').doc(id).set(s).then(()=>{['fn','fp','fg','fc','fd'].forEach(i=>$(i).value='');showQR(id)}).catch(errh);
 }
 function delStudent(id){
  if(!confirm('حذف الطالب وكل سجلاته؟'))return;
- db.students=db.students.filter(s=>s.id!==id);
- ['att','rec','hw'].forEach(k=>{for(const d in db[k])db[k][d]=db[k][d].filter(x=>x!==id)});
- save();render();
+ const b=fs.batch();b.delete(fs.collection('students').doc(id));
+ ['att','rec','hw'].forEach(k=>{for(const d in db[k])if(db[k][d].includes(id))b.update(fs.collection('records').doc(k+'_'+d),{ids:FV.arrayRemove(id)})});
+ b.commit().catch(errh);
 }
 function showQR(id){
  const s=db.students.find(x=>x.id===id);if(!s)return;
@@ -117,14 +164,6 @@ function showQR(id){
  $('qrbox').innerHTML='';
  new QRCode($('qrbox'),{text:s.id,width:220,height:220,correctLevel:QRCode.CorrectLevel.M});
  $('qrModal').classList.add('on');
-}
-function backup(){
- const t=JSON.stringify(db);
- (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>alert('تم نسخ البيانات. الصقها في ملاحظة أو رسالة واحتفظ بها.')).catch(()=>prompt('انسخ النص ده واحتفظ به:',t));
-}
-function restore(){
- const t=prompt('الصق نص النسخة الاحتياطية هنا:');if(!t)return;
- try{const d=JSON.parse(t);if(!Array.isArray(d.students))throw 0;db=Object.assign({students:[],att:{},rec:{},hw:{}},d);save();render();alert('تم الاسترجاع')}catch(e){alert('النص غير صالح')}
 }
 
 function renderSec(k){
@@ -149,8 +188,7 @@ function renderSecList(k){
   return `<div class="item"><div><b>${esc(s.name)}</b><small>${esc(s.group||'')}</small></div><span class="bd ${y?'y':'n'}" onclick="toggle('${k}','${s.id}')">${y?'✔ '+c.y:'✖ '+c.n}</span></div>`}).join(''):'<div class="empty">لا يوجد طلاب</div>';
 }
 function toggle(k,id){
- const d=dates[k],a=db[k][d]=db[k][d]||[];
- const i=a.indexOf(id);i>=0?a.splice(i,1):a.push(id);save();renderSec(k);
+ const d=dates[k];mark(k,d,id,!(db[k][d]||[]).includes(id));
 }
 
 let scanner=null,ctx=null,last='',lastT=0,ac;
@@ -184,15 +222,15 @@ function onScan(txt){
  last=txt;lastT=now;
  const s=db.students.find(x=>x.id===txt.trim());
  if(!s){say('bad','❌ كود غير معروف');beep(false);return}
- const {k,mode,d}=ctx,c=SEC[k],a=db[k][d]=db[k][d]||[],has=a.includes(s.id);
+ const {k,mode,d}=ctx,c=SEC[k],has=(db[k][d]||[]).includes(s.id);
  if(mode==='rec'){
   if(has){say('warn','⚠️ '+s.name+' — مسجّل بالفعل');beep(false)}
-  else{a.push(s.id);save();say('ok','✅ تم بنجاح — '+s.name);beep(true)}
+  else{mark(k,d,s.id,true);say('ok','✅ تم بنجاح — '+s.name);beep(true)}
  }else{
   const total=Object.values(db[k]).filter(x=>x.includes(s.id)).length;
   say(has?'ok':'bad',(has?'✔ ':'✖ ')+s.name+': '+(has?c.y:c.n)+' يوم '+d+' (إجمالي '+total+' مرة)');beep(has);
  }
 }
-render();
+renderNav();
 </script>
 </body></html>
