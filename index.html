@@ -8,7 +8,7 @@
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@700&family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap"></noscript>
 <link rel="dns-prefetch" href="https://www.gstatic.com"><link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
 <style>
-:root{--bg:#f1f3f6;--card:#fff;--field:#f7f9fb;--tx:#14202e;--mut:#66748a;--pr:#12304a;--prh:#0c2338;--acc:#12304a;--gold:#b58a3c;--gl:#d9b76d;--ok:#1f7a55;--no:#b3392f;--wn:#a8680f;--bd:#e1e6ed;--hd:#0f2a41;--sh:0 1px 2px rgba(15,32,50,.05),0 4px 14px rgba(15,32,50,.04);--ring:rgba(181,138,60,.35);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root{--bg:#f1f3f6;--card:#fff;--field:#f7f9fb;--tx:#14202e;--mut:#66748a;--pr:#12304a;--prh:#0c2338;--acc:#12304a;--gold:#b58a3c;--gl:#d9b76d;--ok:#1f7a55;--no:#b3392f;--wn:#a8680f;--bd:#e1e6ed;--hd:#0f2a41;--sh:0 1px 2px rgba(15,32,50,.05),0 4px 14px rgba(15,32,50,.04);--ring:rgba(181,138,60,.35);box-sizing:border-box}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b131c;--card:#121d29;--field:#0e1822;--tx:#e6ebf2;--mut:#93a1b5;--pr:#2a5783;--prh:#356795;--acc:#d3ae6a;--gold:#d3ae6a;--ok:#3fb884;--no:#e0675c;--wn:#e0a24a;--bd:#233346;--hd:#08131e;--sh:none;--ring:rgba(211,174,106,.4)}}
 :root[data-theme="dark"]{--bg:#0b131c;--card:#121d29;--field:#0e1822;--tx:#e6ebf2;--mut:#93a1b5;--pr:#2a5783;--prh:#356795;--acc:#d3ae6a;--gold:#d3ae6a;--ok:#3fb884;--no:#e0675c;--wn:#e0a24a;--bd:#233346;--hd:#08131e;--sh:none;--ring:rgba(211,174,106,.4)}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
@@ -18,7 +18,7 @@ body{margin:0;background:var(--bg);color:var(--tx);font-family:'IBM Plex Sans Ar
 :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
 /* ---------- الهيدر ---------- */
-header.top{background:var(--hd);color:#fff;padding:14px max(16px,calc((100% - 860px)/2));display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:3px solid var(--gold)}
+header.top{background:var(--hd);color:#fff;padding:calc(14px + env(safe-area-inset-top,0px)) max(16px,calc((100% - 860px)/2)) 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:3px solid var(--gold)}
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
 .brand b{display:block;font-family:Amiri,'IBM Plex Sans Arabic',serif;font-size:23px;line-height:1.25;font-weight:700}
 .brand small{display:block;font-size:12px;opacity:.68}
@@ -204,6 +204,67 @@ td.c-ok{color:var(--ok);font-weight:700}
 td.c-no{background:rgba(179,57,47,.13);color:var(--no);font-weight:700}
 tr.all td{background:rgba(31,122,85,.09)}
 
+
+/* ---------- عام: اللمس ---------- */
+button,a,input,select,label,textarea{touch-action:manipulation}
+button{-webkit-tap-highlight-color:transparent}
+.btn:active{transform:scale(.98);filter:brightness(.94)}
+.item.st .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.item.st .nm{min-width:0}
+
+/* ---------- تحسينات الجوال ---------- */
+@media (max-width:640px){
+ body{font-size:15.5px;-webkit-text-size-adjust:100%}
+ header.top{padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px}
+ .mark{width:38px;height:38px}.mark .ic{width:19px;height:19px}
+ .brand{gap:10px}
+ .out{width:40px;height:40px;padding:0;justify-content:center;border-radius:11px}.out span{display:none}.out .ic{width:19px;height:19px}
+
+ /* شريط التنقل السفلي */
+ nav{position:fixed;top:auto;left:0;right:0;bottom:0;z-index:15;min-height:0;gap:0;padding:0 4px env(safe-area-inset-bottom,0px);justify-content:space-around;overflow:visible;border-bottom:0;border-top:1px solid var(--bd);box-shadow:0 -6px 20px rgba(15,32,50,.08)}
+ nav button{flex:1;min-width:0;flex-direction:column;gap:3px;padding:9px 2px 8px;font-size:11.5px;border-bottom:0;border-top:3px solid transparent}
+ nav button .ic{width:23px;height:23px}
+ nav button.on{border-top-color:var(--gold)}
+ nav button:active{background:var(--field)}
+ main{padding:12px 10px 10px}
+ footer.devwrap{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+
+ .card{padding:14px;border-radius:14px;margin-bottom:12px}
+ h3{font-size:16.5px}
+ input,select{font-size:16px;min-height:46px;padding:10px 13px}
+ textarea{font-size:16px;min-height:130px}
+ .btn{min-height:46px;font-size:15px}
+ .btn.sm{min-height:40px;font-size:13.5px;padding:8px 10px}
+ .card .row>.btn{flex:1 1 100%}
+ .stats{gap:8px}.stats div{font-size:22px;padding:10px 4px}
+ .item{padding:12px 2px}
+ .item.st{flex-wrap:wrap;row-gap:10px}
+ .item.st .nm{flex:1 1 100%}
+ .item.st .acts{width:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+ .item.st .acts .btn{padding:8px 2px;gap:5px;font-size:13px}
+ .bd{min-height:40px;padding:8px 16px;font-size:14px}
+ td,th{padding:10px 4px}
+
+ /* النوافذ كشريحة سفلية */
+ .modal{align-items:flex-end;padding:0}
+ .box{max-width:none!important;max-height:92vh;max-height:92dvh;border-radius:22px 22px 0 0;border-bottom:0;padding:16px 16px calc(18px + env(safe-area-inset-bottom,0px))}
+ .box::before{content:'';display:block;width:44px;height:5px;border-radius:9px;background:var(--bd);margin:0 auto 14px}
+ .modal.on .box{animation:sheet .28s cubic-bezier(.2,.8,.2,1)}
+ @keyframes sheet{from{transform:translateY(46px);opacity:.3}to{transform:none;opacity:1}}
+ #cardPage{align-items:center;padding:14px}
+ #cardPage .box{max-width:420px!important;border-radius:18px;border-bottom:1px solid var(--gold);padding:0}
+ #cardPage .box::before{display:none}
+ #banner{font-size:16px;padding:13px}
+ #cardsBox{grid-template-columns:repeat(2,1fr)}
+
+ /* الدخول */
+ .lbrand{padding:calc(20px + env(safe-area-inset-top,0px)) 20px 22px}
+ .lform{padding:28px 18px calc(28px + env(safe-area-inset-bottom,0px))}
+ .lcard h2{font-size:24px}
+ .devwrap{padding-left:10px;padding-right:10px}
+}
+@media (max-width:640px) and (prefers-reduced-motion:reduce){.modal.on .box{animation:none}}
+
 /* ---------- الطباعة ---------- */
 @media print{body *{visibility:hidden}#qrModal .box,#qrModal .box *{visibility:visible}#qrModal .box{position:absolute;inset:0 auto auto 0;width:100%;border:0}.no-print{display:none!important}}
 @media print{#cardsModal .box,#cardsModal .box *{visibility:visible}#cardsModal .box{position:absolute;inset:0 auto auto 0;width:100%;max-width:none;border:0}}
@@ -211,7 +272,7 @@ tr.all td{background:rgba(31,122,85,.09)}
 
 <header class="top">
  <div class="brand"><span class="mark" id="secretMark"><i data-i="cap"></i></span><div><b>سنتر بيرفكت التعليمي</b><small>لوحة الإدارة</small></div></div>
- <button class="out" onclick="logout()"><i data-i="logout"></i> تسجيل الخروج</button>
+ <button class="out" onclick="logout()" aria-label="تسجيل الخروج"><i data-i="logout"></i> <span>تسجيل الخروج</span></button>
 </header>
 <nav id="nav"></nav>
 <main id="main"></main>
@@ -625,8 +686,8 @@ function renderStudents(){
 function renderStudentsList(){
  const sc=$('scount');if(sc)sc.textContent=db.students.length;
  const all=db.students.filter(s=>(s.name+(s.phone||'')+(s.group||'')).includes(q)),list=all.slice(0,150);
- $('slist').innerHTML=list.length?list.map(s=>`<div class="item"><div><b>${esc(s.name)}</b><small>${esc(s.group||'')} ${s.phone?'• '+esc(s.phone):''}</small></div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="btn sm g" onclick="openSend(['${s.id}'])">${ico(s.qrSent?'tick':'send')} إرسال</button><button class="btn sm" onclick="showQR('${s.id}')">${ico('qr')} QR</button><button class="btn sm s" onclick="editStudent('${s.id}')">تعديل</button><button class="btn sm r" onclick="delStudent('${s.id}')">حذف</button></div></div>`).join(''):'<div class="empty">لا يوجد طلاب</div>';
+ $('slist').innerHTML=list.length?list.map(s=>`<div class="item st"><div class="nm"><b>${esc(s.name)}</b><small>${esc(s.group||'')} ${s.phone?'• '+esc(s.phone):''}</small></div>
+  <div class="acts"><button class="btn sm g" onclick="openSend(['${s.id}'])">${ico(s.qrSent?'tick':'send')} إرسال</button><button class="btn sm" onclick="showQR('${s.id}')">${ico('qr')} QR</button><button class="btn sm s" onclick="editStudent('${s.id}')">تعديل</button><button class="btn sm r" onclick="delStudent('${s.id}')">حذف</button></div></div>`).join(''):'<div class="empty">لا يوجد طلاب</div>';
  if(all.length>150)$('slist').insertAdjacentHTML('beforeend','<div class="empty">معروض 150 من '+all.length+' — استخدم البحث</div>');
 }
 function addStudent(){
