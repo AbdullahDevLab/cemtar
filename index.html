@@ -175,13 +175,42 @@ th{color:var(--mut);font-weight:600;font-size:13px}
 .lform{flex-direction:column;gap:30px}
 @media (max-width:820px){.lform{align-items:center;justify-content:flex-start}}
 
+
+/* ---------- الإضافة الجماعية (مخفية) ---------- */
+#secretMark{cursor:default;user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.bulk{max-width:680px;text-align:right}.bulk h3{justify-content:flex-start}
+textarea{width:100%;min-height:150px;padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--field);color:var(--tx);font:inherit;font-size:14px;resize:vertical;margin:8px 0;white-space:pre;overflow:auto;transition:border-color .15s,box-shadow .15s}
+textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--ring)}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;margin:4px 0 10px;cursor:pointer}.chk input{width:auto;margin:0;accent-color:var(--gold)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.chip{padding:4px 12px;border-radius:99px;font-size:13px;font-weight:600;background:var(--field);border:1px solid var(--bd)}
+.chip.ok{color:var(--ok)}.chip.wn{color:var(--wn)}.chip.no{color:var(--no)}
+.bulk .tw{overflow:auto;max-height:230px;border:1px solid var(--bd);border-radius:10px;margin-bottom:12px}
+.bulk table{margin:0;font-size:13px}.bulk td,.bulk th{text-align:right;white-space:nowrap}
+.bulk .code{background:var(--field);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;font-size:13px;margin:8px 0 12px}
+
+
+/* ---------- نتيجة الاستعلام الكلي ---------- */
+.verdict{display:flex;align-items:center;gap:14px;padding:15px 16px;border-radius:12px;margin:2px 0 12px;color:#fff}
+.verdict.ok{background:var(--ok)}.verdict.no{background:var(--no)}
+.verdict .vi{display:grid;place-items:center;flex:none}.verdict .vi .ic{width:36px;height:36px}
+.verdict b{display:block;font-size:18px;line-height:1.35}.verdict small{display:block;font-size:14px;margin-top:3px}
+.verdict mark{display:inline-block;background:#ffe45c;color:#5a1a14;padding:1px 10px;border-radius:6px;font-weight:700;margin-inline-end:6px}
+.item.hit,.item.miss{border:0;border-radius:10px;padding:12px;margin:5px 0;border-inline-start:4px solid var(--ok);background:rgba(31,122,85,.09)}
+.item.miss{border-inline-start-color:var(--no);background:rgba(179,57,47,.10)}
+.item.miss b.il .lb{background:linear-gradient(transparent 48%,rgba(255,208,0,.5) 48%);padding:0 5px;border-radius:2px}
+.item.hit .bd.y{background:var(--ok);color:#fff}.item.miss .bd.n{background:var(--no);color:#fff}
+td.c-ok{color:var(--ok);font-weight:700}
+td.c-no{background:rgba(179,57,47,.13);color:var(--no);font-weight:700}
+tr.all td{background:rgba(31,122,85,.09)}
+
 /* ---------- الطباعة ---------- */
 @media print{body *{visibility:hidden}#qrModal .box,#qrModal .box *{visibility:visible}#qrModal .box{position:absolute;inset:0 auto auto 0;width:100%;border:0}.no-print{display:none!important}}
 @media print{#cardsModal .box,#cardsModal .box *{visibility:visible}#cardsModal .box{position:absolute;inset:0 auto auto 0;width:100%;max-width:none;border:0}}
 </style></head><body>
 
 <header class="top">
- <div class="brand"><span class="mark"><i data-i="cap"></i></span><div><b>سنتر بيرفكت التعليمي</b><small>لوحة الإدارة</small></div></div>
+ <div class="brand"><span class="mark" id="secretMark"><i data-i="cap"></i></span><div><b>سنتر بيرفكت التعليمي</b><small>لوحة الإدارة</small></div></div>
  <button class="out" onclick="logout()"><i data-i="logout"></i> تسجيل الخروج</button>
 </header>
 <nav id="nav"></nav>
@@ -248,6 +277,21 @@ th{color:var(--mut);font-weight:600;font-size:13px}
  <button class="btn s" style="width:100%;margin-top:8px" onclick="$('sendModal').classList.remove('on')">إغلاق</button>
 </div></div>
 
+<div class="modal" id="bulkModal" style="z-index:45"><div class="box bulk">
+ <h3><i data-i="userplus"></i> إضافة طلاب دفعة واحدة</h3>
+ <div class="code">انسخ الصفوف من Excel أو Google Sheets بهذا الترتيب ثم الصقها بالأسفل:<br><b>الاسم | رقم الطالب | رقم ولي الأمر | المجموعة | ملاحظات</b><br><span style="color:var(--mut)">الاسم فقط هو الإلزامي، والباقي اختياري.</span></div>
+ <div class="row">
+  <button class="btn s sm" onclick="bulkTemplate()"><i data-i="download"></i> تنزيل النموذج</button>
+  <label class="btn s sm" style="cursor:pointer"><i data-i="upload"></i> رفع ملف CSV<input type="file" id="bfile" accept=".csv,.tsv,.txt" hidden onchange="bulkFile(this)"></label>
+ </div>
+ <input id="bgrp" placeholder="مجموعة افتراضية للصفوف التي بلا مجموعة (اختياري)" style="margin-top:10px" oninput="bulkParse()">
+ <textarea id="btxt" placeholder="الصق الصفوف هنا..." oninput="bulkParse()"></textarea>
+ <label class="chk"><input type="checkbox" id="bskip" checked onchange="bulkParse()"> تخطي الطلاب المكررين (نفس الاسم ونفس الرقم)</label>
+ <div id="bsum" class="chips"></div>
+ <div id="bprev"></div>
+ <div class="row"><button class="btn g" id="bgo" onclick="bulkSave()" disabled>إضافة الطلاب</button><button class="btn s" onclick="bulkClose()">إغلاق</button></div>
+</div></div>
+
 <div class="modal" id="cardsModal"><div class="box" style="max-width:800px">
  <div class="row no-print"><button class="btn" onclick="window.print()"><i data-i="print"></i> طباعة</button><button class="btn s" onclick="$('cardsModal').classList.remove('on')">إغلاق</button></div>
  <div id="cardsBox"></div>
@@ -256,6 +300,8 @@ th{color:var(--mut);font-weight:600;font-size:13px}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const IC={
+ xcircle:'<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+ upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
  code:'<path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>',
  cap:'<path d="M22 10 12 5 2 10l10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/><path d="M22 10v6"/>',
  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
@@ -481,11 +527,13 @@ const newId=()=>'S'+Array.from(crypto.getRandomValues(new Uint8Array(10)),b=>(b%
 const recFor=id=>{const o={};['att','rec','hw'].forEach(k=>o[k]=Object.keys(db[k]).filter(d=>db[k][d].includes(id)));return o};
 function profileHTML(name,r,d){
  const K=['att','rec','hw'],has=(k,x)=>(r[k]||[]).includes(x);
- const rows=K.map(k=>{const y=has(k,d);return `<div class="item"><b class="il">${ico(SEC[k].ic)} ${SEC[k].t}</b><span class="bd ${y?'y':'n'}">${y?ico('tick')+SEC[k].y:ico('x')+SEC[k].n}</span></div>`}).join('');
+ const miss=K.filter(k=>!has(k,d)),ok=!miss.length;
+ const verdict=`<div class="verdict ${ok?'ok':'no'}"><span class="vi">${ico(ok?'check':'xcircle')}</span><div><b>${ok?'مستوفي للشروط كاملة':'لم يستوفِ الشروط'}</b><small>${ok?'حضور وتسميع وحلّ واجب في هذا اليوم':'الناقص: '+miss.map(k=>`<mark>${SEC[k].t}</mark>`).join('')}</small></div></div>`;
+ const rows=K.map(k=>{const y=has(k,d);return `<div class="item ${y?'hit':'miss'}"><b class="il">${ico(SEC[k].ic)} ${y?SEC[k].t:'<span class="lb">'+SEC[k].t+'</span>'}</b><span class="bd ${y?'y':'n'}">${y?ico('tick')+SEC[k].y:ico('x')+SEC[k].n}</span></div>`}).join('');
  const days=[...new Set(K.flatMap(k=>r[k]||[]))].sort().reverse().slice(0,15);
- return `<h3>${esc(name)}</h3><div style="color:var(--mut);margin-bottom:6px">حالة يوم ${d}</div>${rows}
- <div class="stats" style="margin-top:10px">${K.map(k=>`<div>${(r[k]||[]).length}<span>إجمالي ${SEC[k].t}</span></div>`).join('')}</div>
- <table><tr><th>التاريخ</th>${K.map(k=>`<th>${SEC[k].t}</th>`).join('')}</tr>${days.map(x=>`<tr><td>${x}</td>${K.map(k=>`<td>${has(k,x)?'✔':'—'}</td>`).join('')}</tr>`).join('')}</table>`;
+ return `<h3>${esc(name)}</h3><div style="color:var(--mut);margin-bottom:10px">حالة يوم ${d}</div>${verdict}${rows}
+ <div class="stats" style="margin-top:12px">${K.map(k=>`<div>${(r[k]||[]).length}<span>إجمالي ${SEC[k].t}</span></div>`).join('')}</div>
+ <table><tr><th>التاريخ</th>${K.map(k=>`<th>${SEC[k].t}</th>`).join('')}</tr>${days.map(x=>`<tr class="${K.every(k=>has(k,x))?'all':''}"><td>${x}</td>${K.map(k=>`<td class="${has(k,x)?'c-ok':'c-no'}">${has(k,x)?'✔':'✖'}</td>`).join('')}</tr>`).join('')}</table>`;
 }
 function renderAsk(){
  $('main').innerHTML=`<div class="card"><h3>${ico('search')} استعلام شامل: حضور، تسميع، واجب</h3>
@@ -664,7 +712,7 @@ function onScan(txt){
  const s=db.students.find(x=>x.id===txt.trim());
  if(!s){say('bad','كود غير معروف');beep(false);return}
  const {k,mode,d}=ctx;
- if(k==='ask'){pickAsk(s.id);const r=recFor(s.id);say('ok',s.name+' — '+['att','rec','hw'].map(x=>SEC[x].t+(r[x].includes(d)?' ✔':' ✖')).join(' | '));beep(true);return}
+ if(k==='ask'){pickAsk(s.id);const r=recFor(s.id),miss=['att','rec','hw'].filter(x=>!r[x].includes(d));say(miss.length?'bad':'ok',s.name+' — '+(miss.length?'ناقص: '+miss.map(x=>SEC[x].t).join('، '):'مستوفي للشروط كاملة'));beep(!miss.length);return}
  const c=SEC[k],has=(db[k][d]||[]).includes(s.id);
  if(mode==='rec'){
   if(has){say('warn',s.name+' — مسجّل بالفعل');beep(false)}
@@ -674,6 +722,76 @@ function onScan(txt){
   say(has?'ok':'bad',(has?'✔ ':'✖ ')+s.name+': '+(has?c.y:c.n)+' يوم '+d+' (إجمالي '+total+' مرة)');beep(has);
  }
 }
+
+/* ===== إضافة الطلاب دفعة واحدة (تُفتح بالضغط 5 مرات على شعار الهيدر) ===== */
+let bulkRows=[];
+const cleanPhone=v=>{let p=String(v||'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\D/g,'');if(p.length===10&&p[0]==='1')p='0'+p;return p};
+const normName=n=>String(n||'').replace(/\s+/g,' ').trim();
+function splitLine(l,d){
+ if(d==='\t')return l.split('\t');
+ const out=[];let cur='',q=false;
+ for(let i=0;i<l.length;i++){const ch=l[i];
+  if(ch==='"'){if(q&&l[i+1]==='"'){cur+='"';i++}else q=!q}
+  else if(ch===d&&!q){out.push(cur);cur=''}else cur+=ch}
+ out.push(cur);return out;
+}
+function bulkOpen(){
+ $('btxt').value='';$('bgrp').value='';$('bfile').value='';bulkParse();
+ $('bulkModal').classList.add('on');setTimeout(()=>$('btxt').focus(),50);
+}
+function bulkClose(){$('bulkModal').classList.remove('on')}
+function bulkParse(){
+ const txt=$('btxt').value.replace(/^\uFEFF/,'').replace(/\r/g,''),lines=txt.split('\n').filter(l=>l.trim());
+ const d=txt.includes('\t')?'\t':((txt.match(/;/g)||[]).length>(txt.match(/,/g)||[]).length?';':',');
+ const dg=$('bgrp').value.trim(),skip=$('bskip').checked;
+ const seen=new Set(db.students.map(s=>normName(s.name)+'|'+(s.phone||'')));
+ let rows=lines.map(l=>splitLine(l,d).map(x=>x.trim()));
+ if(rows.length&&/^(الاسم|اسم)/.test(rows[0][0]||''))rows.shift();
+ let bad=0,dup=0;bulkRows=[];const view=[];
+ rows.forEach(c=>{
+  const name=normName(c[0]);if(!name){bad++;return}
+  const r={name,phone:cleanPhone(c[1]),parent:cleanPhone(c[2]),group:(c[3]||'').trim()||dg,note:(c[4]||'').trim()};
+  const k=r.name+'|'+r.phone,isDup=seen.has(k);seen.add(k);
+  if(isDup){dup++;if(skip){view.push({...r,st:'مكرر'});return}}
+  bulkRows.push(r);view.push({...r,st:isDup?'مكرر (سيُضاف)':'جديد'});
+ });
+ $('bsum').innerHTML=lines.length?`<span class="chip ok">جاهز للإضافة: ${bulkRows.length}</span>${dup?`<span class="chip wn">مكرر: ${dup}</span>`:''}${bad?`<span class="chip no">بدون اسم: ${bad}</span>`:''}`:'';
+ $('bprev').innerHTML=view.length?`<div class="tw"><table><tr><th>#</th><th>الاسم</th><th>الطالب</th><th>ولي الأمر</th><th>المجموعة</th><th>الحالة</th></tr>${view.slice(0,50).map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.name)}</td><td dir="ltr">${esc(r.phone||'—')}</td><td dir="ltr">${esc(r.parent||'—')}</td><td>${esc(r.group||'—')}</td><td style="color:${r.st==='جديد'?'var(--ok)':'var(--wn)'}">${r.st}</td></tr>`).join('')}</table></div>${view.length>50?`<div class="note" style="margin:-4px 0 10px">معروض أول 50 صفًا من ${view.length}</div>`:''}`:'';
+ const b=$('bgo');b.disabled=!bulkRows.length;b.textContent=bulkRows.length?'إضافة '+bulkRows.length+' طالب':'إضافة الطلاب';
+}
+async function bulkFile(inp){
+ const f=inp.files&&inp.files[0];if(!f)return;
+ $('btxt').value=await f.text();bulkParse();
+}
+function bulkTemplate(){
+ const rows=['الاسم,رقم الطالب,رقم ولي الأمر,المجموعة,ملاحظات','أحمد محمد علي,01012345678,01123456789,مجموعة أ,ملاحظة اختيارية','سارة خالد حسن,01098765432,01234567890,مجموعة ب,'];
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+rows.join('\r\n')],{type:'text/csv;charset=utf-8'}));
+ a.download='نموذج-إضافة-الطلاب.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+async function bulkSave(){
+ if(!auth||!auth.currentUser)return alert('سجّل الدخول أولًا');
+ const list=bulkRows.slice(),n=list.length;if(!n)return;
+ const b=$('bgo'),sm=$('bsum');b.disabled=true;
+ try{
+  const now=Date.now();
+  for(let i=0;i<n;i+=200){
+   const bt=fs.batch();
+   list.slice(i,i+200).forEach((r,j)=>{
+    const id=newId();
+    bt.set(fs.collection('students').doc(id),{id,name:r.name,phone:r.phone,parent:r.parent,grade:'الصف الثاني (بكالوريا)',group:r.group,note:r.note,createdAt:now+i+j});
+    bt.set(fs.collection('public').doc(id),{name:r.name,att:[],rec:[],hw:[]});
+   });
+   await bt.commit();
+   sm.innerHTML=`<span class="chip wn">جارٍ الحفظ: ${Math.min(i+200,n)} / ${n}</span>`;
+  }
+  $('btxt').value='';$('bfile').value='';bulkParse();
+  sm.innerHTML=`<span class="chip ok">تمت إضافة ${n} طالب بنجاح</span>`;
+ }catch(e){errh(e);bulkParse()}
+}
+(()=>{let n=0,t=0;$('secretMark').addEventListener('click',()=>{
+ const now=Date.now();n=now-t<1200?n+1:1;t=now;
+ if(n>=5){n=0;if(auth&&auth.currentUser){if(navigator.vibrate)navigator.vibrate(30);bulkOpen()}}
+})})();
 renderNav();
 const hp=new URLSearchParams(location.hash.slice(1)),hid=hp.get('card');
 if(hid&&/^[A-Za-z0-9]{6,24}$/.test(hid))showCardPage({id:hid,name:hp.get('n')||'',group:hp.get('g')||''});
